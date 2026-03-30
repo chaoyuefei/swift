@@ -305,7 +305,7 @@ class SwiftSocket:
     async def register(self, websocket):
         self.USERS.add(websocket)
 
-    async def serve(self, websocket, path):
+    async def serve(self, websocket):
         # Initial connection handshake
         await self.register(websocket)
         recieved = await websocket.recv()
