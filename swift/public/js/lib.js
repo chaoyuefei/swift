@@ -447,6 +447,10 @@ class Shape{
     }
 
     set_poses(pose) {
+        if (!this.ob.mesh) {
+            return;
+        }
+
         let t = pose.t;
         let q = pose.q;
         let quat = new THREE.Quaternion(q[1], q[2], q[3], q[0]);
@@ -455,6 +459,10 @@ class Shape{
     }
 
     remove(scene) {
+        if (!this.ob.mesh) {
+            return;
+        }
+
         this.ob.mesh.geometry.dispose();
         this.ob.mesh.material.dispose();
         scene.remove(this.ob.mesh);

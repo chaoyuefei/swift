@@ -101,7 +101,7 @@ function init() {
 	scene.fog = new THREE.Fog(0x787878, 2, 15 );
 
 	var plane = new THREE.Mesh(
-		new THREE.PlaneBufferGeometry( 40, 40 ),
+		new THREE.PlaneGeometry( 40, 40 ),
 		new THREE.MeshPhongMaterial( { color: 0x4B4B4B, specular: 0x101010 } )
 	);
 	plane.receiveShadow = true;
@@ -163,29 +163,40 @@ function animate() {
 
 function startRecording(frate, name, format) {
 	if (!recording) {
+		try {
+			if (format === 'gif') {
+				autoclose = false;
+			}
 
-		if (format === 'gif') {
-			autoclose = false;
+			recorder = new CCapture({
+				verbose: false,
+				display: true,
+				framerate: frate,
+				quality: 100,
+				format: format,
+				name: name,
+				workersPath: 'js/vendor/build/'
+			});
+			recording = true;
+			recorder.start();
+		} catch (error) {
+			recorder = null;
+			recording = false;
+			console.error('Failed to start recording:', error);
 		}
-
-		recorder = new CCapture({
-			verbose: false,
-			display: true,
-			framerate: frate,
-			quality: 100,
-			format: format,
-			name: name,
-			workersPath: 'js/vendor/build/'
-		});
-		recording = true;
-		recorder.start();
 	};
 }
 
 
 function stopRecording() {
+	if (!recorder) {
+		recording = false;
+		return;
+	}
+
 	recorder.stop();
 	recorder.save();
+	recorder = null;
 	recording = false;
 }
 
@@ -225,7 +236,9 @@ ws.onmessage = function (event) {
 	} else if (func === 'shape_poses') {
 		let id = data[0];
 		let poses = data[1];
-		shapes[id].set_poses(poses);
+		if (shapes[id]) {
+			shapes[id].set_poses(poses);
+		}
 		ws.send(id);
 	} else if (func === 'is_loaded') {
 		let loaded = agents[data].isLoaded();
