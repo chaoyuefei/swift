@@ -4,7 +4,7 @@ name = "swift-sim"
 
 description = "A Python/Javascript Robot Simulator and Visualiser"
 
-version = "1.1.0"
+version = "1.1.1"
 
 authors = [
     { name = "Jesse Haviland", email = "j.haviland@qut.edu.au" },

@@ -10,6 +10,8 @@ from swift.SwiftElement import (
 )
 from swift.Swift import Swift
 
+__version__ = "1.1.1"
+
 __all__ = [
     "Swift",
     "SwiftServer",
@@ -22,4 +24,5 @@ __all__ = [
     "Radio",
     "Button",
     "Label",
+    "__version__",
 ]
