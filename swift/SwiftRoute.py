@@ -290,11 +290,13 @@ class SwiftSocket:
 
         started = False
 
+        async def start_server(port):
+            return await websockets.serve(self.serve, "localhost", port)
+
         port = 53000
         while not started and port < 62000:
             try:
-                start_server = websockets.serve(self.serve, "localhost", port)
-                self.loop.run_until_complete(start_server)
+                self.server = self.loop.run_until_complete(start_server(port))
                 started = True
             except OSError:
                 port += 1
