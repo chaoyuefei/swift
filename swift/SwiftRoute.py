@@ -291,7 +291,9 @@ class SwiftSocket:
         started = False
 
         async def start_server(port):
-            return await websockets.serve(self.serve, "localhost", port)
+            # Captured canvas frames are sent as base64 data URLs and can exceed
+            # websockets' default 1 MiB receive limit.
+            return await websockets.serve(self.serve, "localhost", port, max_size=None)
 
         port = 53000
         while not started and port < 62000:
