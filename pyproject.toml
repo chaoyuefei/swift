@@ -11,7 +11,7 @@ authors = [
     { name = "Peter Corke", email = "rvc@petercorke.com" },
 ]
 
-dependencies = ["numpy>=2.0", "spatialgeometry @ git+https://github.com/chaoyuefei/spatialgeometry.git@main", "websockets"]
+dependencies = ["numpy>=2.0", "spatialgeometry @ git+https://github.com/petercorke/spatialgeometry.git@future", "websockets"]
 
 license = { file = "LICENSE" }
 
