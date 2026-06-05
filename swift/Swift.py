@@ -8,7 +8,7 @@ import numpy as np
 import spatialmath as sm
 from spatialgeometry import Shape
 import time
-from queue import Queue
+from queue import Empty, Queue
 import json
 from swift import start_servers, SwiftElement, Button
 from swift.phys import step_v, step_shape
@@ -530,6 +530,28 @@ class Swift:
             file_name = file_name[:-4]
 
         self._send_socket("screenshot", [file_name])
+
+    def capture_frame(self, canvas_id="threeCanvas", timeout=5.0):
+        """
+        Return the current Swift WebGL canvas as a data URL.
+
+        This is intended for programmatic video export. Unlike ``screenshot`` or
+        browser recording, the frame bytes are returned to Python instead of
+        downloaded by the browser. A timeout is used so a missing/old frontend
+        cannot block the simulation indefinitely.
+        """
+
+        msg = [True, ["get_frame", canvas_id]]
+        self.outq.put(msg)
+
+        try:
+            return self.inq.get(timeout=timeout)
+        except Empty as exc:
+            raise TimeoutError(
+                "Timed out waiting for Swift canvas frame. Close the old Swift "
+                "browser tab, restart the script, and hard-refresh the page if "
+                "the browser cached an old Swift frontend."
+            ) from exc
 
     def process_events(self, events):
         """
