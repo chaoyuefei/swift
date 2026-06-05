@@ -70,6 +70,8 @@ dev = [
 
 docs = ["sphinx", "sphinx_rtd_theme", "sphinx-autorun"]
 
+recording = ["imageio-ffmpeg>=0.5"]
+
 vision = ["aiortc", "opencv-python"]
 
 nb = ["ipython", "notebook"]

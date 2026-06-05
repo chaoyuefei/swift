@@ -3,7 +3,11 @@
 @author Jesse Haviland
 """
 
+import base64
 from os import read
+from pathlib import Path
+import shutil
+import subprocess
 import numpy as np
 import spatialmath as sm
 from spatialgeometry import Shape
@@ -93,6 +97,7 @@ class Swift:
         self.rendering = True
         self._notrenderperiod = 1
         self.recording = False
+        self._video_recording = None
         self._laststep = time.time()
 
     @property
@@ -272,6 +277,9 @@ class Swift:
             #         self.robots[i]['ob'].fkine_all(self.robots[i]['ob'].q)
 
             self._send_socket("sim_time", self.sim_time, expected=False)
+
+            if self._video_recording is not None:
+                self.record_video_frame()
 
     def reset(self):
         """
@@ -555,6 +563,127 @@ class Swift:
                 "browser tab, restart the script, and hard-refresh the page if "
                 "the browser cached an old Swift frontend."
             ) from exc
+
+    def start_video_recording(
+        self,
+        file_name="swift_recording.mp4",
+        framerate=30,
+        frame_dir=None,
+        overwrite=True,
+        remove_frames=False,
+        canvas_id="threeCanvas",
+    ):
+        """
+        Start programmatic video recording by capturing Swift canvas frames.
+
+        This recorder is Python-controlled: each subsequent ``step()`` captures
+        one browser canvas frame. Frames are always saved; MP4 encoding at
+        ``stop_video_recording()`` is optional and requires either a system
+        ``ffmpeg`` executable or the optional ``imageio-ffmpeg`` package.
+        """
+
+        if self._video_recording is not None:
+            raise ValueError("A video recording is already in progress")
+
+        output = Path(file_name)
+        if output.suffix == "":
+            output = output.with_suffix(".mp4")
+
+        if frame_dir is None:
+            frame_dir = output.with_suffix("").name + "_frames"
+        frame_dir = Path(frame_dir)
+
+        if frame_dir.exists() and overwrite:
+            shutil.rmtree(frame_dir)
+        frame_dir.mkdir(parents=True, exist_ok=True)
+
+        self._video_recording = {
+            "output": output,
+            "framerate": framerate,
+            "frame_dir": frame_dir,
+            "frame_index": 0,
+            "remove_frames": remove_frames,
+            "canvas_id": canvas_id,
+        }
+
+        self.record_video_frame()
+        return frame_dir
+
+    def record_video_frame(self):
+        """Capture one frame for the active programmatic video recording."""
+
+        if self._video_recording is None:
+            raise ValueError("Call start_video_recording() before record_video_frame()")
+
+        rec = self._video_recording
+        data_url = self.capture_frame(canvas_id=rec["canvas_id"])
+        if not isinstance(data_url, str) or "," not in data_url:
+            raise RuntimeError("Swift did not return a valid canvas data URL")
+
+        image_data = data_url.split(",", 1)[1]
+        frame = rec["frame_dir"] / f"frame_{rec['frame_index']:06d}.jpg"
+        frame.write_bytes(base64.b64decode(image_data))
+        rec["frame_index"] += 1
+        return frame
+
+    def stop_video_recording(self, encode=True):
+        """
+        Stop programmatic video recording and optionally encode an MP4.
+
+        Returns the output video path when encoded. If no ffmpeg backend is
+        available, returns the frame directory and leaves frames on disk.
+        """
+
+        if self._video_recording is None:
+            raise ValueError("Call start_video_recording() before stop_video_recording()")
+
+        rec = self._video_recording
+        self._video_recording = None
+
+        if not encode:
+            return rec["frame_dir"]
+
+        ffmpeg = self._find_ffmpeg()
+        if ffmpeg is None:
+            print(
+                "Could not find ffmpeg; frames were saved to "
+                f"{rec['frame_dir']}. Install system ffmpeg or "
+                "install video support with `pip install swift-sim[recording]`."
+            )
+            return rec["frame_dir"]
+
+        subprocess.run(
+            [
+                ffmpeg,
+                "-y",
+                "-framerate",
+                str(rec["framerate"]),
+                "-i",
+                str(rec["frame_dir"] / "frame_%06d.jpg"),
+                "-pix_fmt",
+                "yuv420p",
+                str(rec["output"]),
+            ],
+            check=True,
+        )
+
+        if rec["remove_frames"]:
+            shutil.rmtree(rec["frame_dir"], ignore_errors=True)
+
+        return rec["output"]
+
+    @staticmethod
+    def _find_ffmpeg():
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg is not None:
+            return ffmpeg
+
+        try:
+            import imageio_ffmpeg
+        except ImportError:
+            return None
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
 
     def process_events(self, events):
         """
