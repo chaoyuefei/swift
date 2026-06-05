@@ -373,8 +373,35 @@ class SwiftServer:
 
                     return
 
+            def end_headers(self):
+                # Swift's bundled frontend is frequently edited during
+                # development, while its Next.js chunk filenames can remain the
+                # same. Force browsers to revalidate so Python and JS protocol
+                # changes (for example get_frame) stay in sync.
+                self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+                self.send_header("Pragma", "no-cache")
+                self.send_header("Expires", "0")
+                super().end_headers()
+
+            def send_index(self):
+                index = root_dir / "index.html"
+                content = index.read_text(encoding="utf-8")
+                cache_buster = str(int(time.time() * 1000))
+                content = content.replace('.js"', f'.js?v={cache_buster}"')
+                content = content.replace('.css"', f'.css?v={cache_buster}"')
+                data = content.encode("utf-8")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
             def do_GET(self):
-                if self.path == "/":
+                parsed = urllib.parse.urlparse(self.path)
+                path = parsed.path
+                query = parsed.query
+
+                if path == "/" and query == "":
                     self.send_response(301)
 
                     self.send_header(
@@ -382,20 +409,23 @@ class SwiftServer:
                         "http://localhost:"
                         + str(server_port)
                         + "/?"
-                        + str(socket_port),
+                        + str(socket_port)
+                        + "&v="
+                        + str(int(time.time() * 1000)),
                     )
 
                     self.end_headers()
                     return
-                elif self.path == "/?" + str(socket_port):
-                    self.path = "index.html"
-                elif self.path.startswith("/retrieve/"):
+                elif path == "/" and query.split("&")[0] == str(socket_port):
+                    self.send_index()
+                    return
+                elif path.startswith("/retrieve/"):
                     # print(f"Retrieving file: {self.path[10:]}")
-                    self.path = urllib.parse.unquote(self.path[9:])
+                    self.path = urllib.parse.unquote(path[9:])
                     self.send_file_via_real_path()
                     return
 
-                self.path = Path(self.path).as_posix()
+                self.path = Path(path).as_posix()
 
                 try:
                     http.server.SimpleHTTPRequestHandler.do_GET(self)
