@@ -484,10 +484,12 @@ class Swift:
             ``env.start_recording(file_name)`` is called
         """
 
-        valid_formats = ["webm", "gif", "png", "jpg"]
+        valid_formats = ["webm", "webm-mediarecorder", "gif", "png", "jpg"]
 
         if format not in valid_formats:
-            raise ValueError("Format can one of 'webm', 'gif', 'png', or 'jpg'")
+            raise ValueError(
+                "Format must be one of 'webm', 'webm-mediarecorder', 'gif', 'png', or 'jpg'"
+            )
 
         if not self.recording:
             self._send_socket("start_recording", [framerate, file_name, format])
