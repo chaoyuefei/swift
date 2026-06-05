@@ -663,6 +663,8 @@ class Swift:
             str(rec["framerate"]),
             "-i",
             str(rec["frame_dir"] / "frame_%06d.jpg"),
+            "-vf",
+            "scale=trunc(iw/2)*2:trunc(ih/2)*2",
             "-pix_fmt",
             "yuv420p",
             str(rec["output"]),
