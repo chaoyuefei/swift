@@ -545,7 +545,10 @@ class Swift:
         self.outq.put(msg)
 
         try:
-            return self.inq.get(timeout=timeout)
+            frame = self.inq.get(timeout=timeout)
+            if isinstance(frame, str) and frame.startswith("ERROR:get_frame:"):
+                raise RuntimeError(frame)
+            return frame
         except Empty as exc:
             raise TimeoutError(
                 "Timed out waiting for Swift canvas frame. Close the old Swift "
