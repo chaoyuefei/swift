@@ -626,12 +626,13 @@ class Swift:
         rec["frame_index"] += 1
         return frame
 
-    def stop_video_recording(self, encode=True):
+    def stop_video_recording(self, encode=True, verbose=False):
         """
         Stop programmatic video recording and optionally encode an MP4.
 
         Returns the output video path when encoded. If no ffmpeg backend is
         available, returns the frame directory and leaves frames on disk.
+        Set ``verbose=True`` to show ffmpeg's full encoder output.
         """
 
         if self._video_recording is None:
@@ -652,20 +653,30 @@ class Swift:
             )
             return rec["frame_dir"]
 
-        subprocess.run(
-            [
-                ffmpeg,
-                "-y",
-                "-framerate",
-                str(rec["framerate"]),
-                "-i",
-                str(rec["frame_dir"] / "frame_%06d.jpg"),
-                "-pix_fmt",
-                "yuv420p",
-                str(rec["output"]),
-            ],
-            check=True,
-        )
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "info" if verbose else "error",
+            "-framerate",
+            str(rec["framerate"]),
+            "-i",
+            str(rec["frame_dir"] / "frame_%06d.jpg"),
+            "-pix_fmt",
+            "yuv420p",
+            str(rec["output"]),
+        ]
+
+        if verbose:
+            subprocess.run(cmd, check=True)
+        else:
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(
+                    "ffmpeg failed while encoding Swift recording:\n"
+                    + result.stderr.strip()
+                )
 
         if rec["remove_frames"]:
             shutil.rmtree(rec["frame_dir"], ignore_errors=True)
