@@ -7,6 +7,16 @@
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/swift-sim)](https://img.shields.io/pypi/pyversions/swift-sim)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## Fork notice
+
+This repository is a fork of the original [Swift simulator](https://github.com/jhavl/swift). It keeps the original browser-based robotics visualisation workflow, while adding fixes and features useful for sharing and modern Python environments:
+
+- Git dependencies in related projects are intended to use public HTTPS URLs instead of SSH URLs.
+- The websocket server startup has been updated for newer `websockets` releases.
+- Swift's bundled frontend is served with cache-busting headers so Python and browser-side protocol changes stay in sync.
+- A Python-controlled canvas capture API, `env.capture_frame()`, has been added.
+- A programmatic video recording API has been added. It captures Swift canvas frames from Python and optionally encodes them to MP4.
+
 Swift is a light-weight browser-based simulator built on top of the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python). This simulator provides robotics-specific functionality for rapid prototyping of algorithms, research, and education. Built using Python and Javascript, Swift is cross-platform (Linux, MacOS, and Windows) while also leveraging the ubiquity and support of these languages.
 
 Through the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python), Swift can visualise over 30 supplied robot models: well-known contemporary robots from Franka-Emika, Kinova, Universal Robotics, Rethink as well as classical robots such as the Puma 560 and the Stanford arm. Swift is under development and will support mobile robots in the future.
@@ -37,6 +47,7 @@ Available options are:
 
 - `nb` provides the ability for Swift to be embedded within a Jupyter Notebook
 - `vision` implements an RTC communication strategy allowing for visual feedback from Swift and allows Swift to be run on Google Colab
+- `recording` installs `imageio-ffmpeg` as a fallback video encoder for programmatic recording
 
 Put the options in a comma-separated list like
 
@@ -46,12 +57,83 @@ pip3 install swift-sim[optionlist]
 
 ### From GitHub
 
-To install the latest version from GitHub
+To install the latest version from the original GitHub repository
 
 ```shell script
 git clone https://github.com/jhavl/swift.git
 cd swift
 pip3 install -e .
+```
+
+To install this fork directly from GitHub
+
+```shell script
+pip3 install "swift-sim @ git+https://github.com/chaoyuefei/swift.git@master"
+```
+
+With optional recording support
+
+```shell script
+pip3 install "swift-sim[recording] @ git+https://github.com/chaoyuefei/swift.git@master"
+```
+
+Alternatively, install system `ffmpeg` separately, for example on macOS
+
+```shell script
+brew install ffmpeg
+```
+
+## Programmatic recording
+
+This fork adds a Python-controlled recording path that avoids browser download prompts and browser-native recorder quirks. The simulator captures the Swift WebGL canvas frame-by-frame and encodes the saved frames to MP4 when possible.
+
+```python
+from swift import Swift
+
+# Make and launch the simulator
+env = Swift()
+env.launch(realtime=True)
+
+# Add robots/shapes here...
+
+# Start recording. One frame is captured immediately, then one frame is
+# automatically captured after each env.step(...).
+env.start_video_recording("demo.mp4", framerate=40)
+
+for _ in range(100):
+    # Update robot state here...
+    env.step(0.025)
+
+# Encodes demo.mp4 if ffmpeg is available. If no encoder is found, the frame
+# directory is kept and returned instead.
+output = env.stop_video_recording()
+print(f"Recording saved to {output}")
+```
+
+### Encoder dependency
+
+Video encoding is optional:
+
+1. If a system `ffmpeg` executable is available, Swift uses it.
+2. Otherwise, if `imageio-ffmpeg` is installed via `swift-sim[recording]`, Swift uses that bundled ffmpeg executable.
+3. If neither is available, Swift leaves the captured frames on disk and prints an installation hint instead of failing the simulation.
+
+To show full ffmpeg output for debugging:
+
+```python
+env.stop_video_recording(verbose=True)
+```
+
+To keep only frames and skip MP4 encoding:
+
+```python
+frame_dir = env.stop_video_recording(encode=False)
+```
+
+You can also capture a single canvas frame manually:
+
+```python
+data_url = env.capture_frame(timeout=5.0)
 ```
 
 ## Code Examples
